@@ -11,7 +11,7 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/nam2184/go-generic-sqlx.git
+   go get https://github.com/nam2184/go-generic-sqlx.git
    ```
 
 2. Add your business logic structures that correspond to the tables within model package and specify TableName() to match QueryTypes interface

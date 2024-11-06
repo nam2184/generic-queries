@@ -7,137 +7,158 @@ import (
 
 )
 
-func Insert[T queries.QueryTypes, I any](getID bool) queries.QueryHandlerFunc[T, I] {
-    return func(q *queries.Query[T, I]) {
+func Insert[T queries.QueryTypes](getRow bool) queries.QueryHandlerFunc[T] {
+    return func(q *queries.Query[T]) error {
         if q.A != nil {
             // Handle slice of T
             if q.Tx != nil {
-                fmt.Println("Handling insert with transaction")
-                for _, item := range q.A {
+                for index, item := range q.A {
+                    
                     fields, _ := util.Fields[T](item)
-                    placeholders, _ := util.GenerateNamedParams[T](item)
-                    query := fmt.Sprintf("INSERT INTO %s (%s) VALUES( %s ) RETURNING id", 
+                    args, err := util.GetArgs[T](item); if err != nil {
+                      return err
+                    }
+                     
+                    if getRow == true {
+                      placeholders, _ := util.GeneratePositionalParams[T](item)
+                      query := fmt.Sprintf("INSERT INTO %s (%s) VALUES( %s ) RETURNING *", 
                                         item.TableName(), 
                                         fields,
                                         placeholders, 
                                         )
-                    // Execute the query for each item in the slice
-                    var err error
-                    if getID == true {
-                      string, args, berr := q.Tx.BindNamed(query, &item)
-                      q.Args = args
-                      q.Q = append(q.Q, string)
-                      err = berr
+                      var row T
+                      err = q.Tx.QueryRowx(query, args...).StructScan(&row); if err != nil {
+                          return err
+                      }
+                      if util.IsZero[T](row) {
+                        return fmt.Errorf("No row returned for insert %d", index)
+                      }
+                      q.Rows = append(q.Rows, row)
                     } else {
+                      placeholders, _ := util.GenerateNamedParams[T](item)
+                      query := fmt.Sprintf("INSERT INTO %s (%s) VALUES( %s )", 
+                                        item.TableName(), 
+                                        fields,
+                                        placeholders, 
+                                        )
+ 
                       _, err = q.Tx.NamedExec(query, &item)
-                    }
+                    } 
                     if err != nil {
-                        fmt.Println("Error executing query, rolling back transaction:", err)
-                        fmt.Println(query)
                         if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
-                            fmt.Println("Failed to rollback transaction:", rollbackErr)
+                            return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
                         }
-                        return
+                        return err
                     }
                 }
             } else {
-                fmt.Println("Should not handle slice without transaction") 
+                return fmt.Errorf("Should not handle slice without transaction") 
             }
         }
-        fmt.Printf("Insert operation completed successfully\n")
+        if len(q.Rows) == 0 { 
+          return fmt.Errorf("Error inserting rows, no rows returned as a result")
+        }
+        return nil
     }
 }
 
-func Select[T queries.QueryTypes, I any](constraint string) queries.QueryHandlerFunc[T, I] {
-    return func(q *queries.Query[T, I]) {
+func Select[T queries.QueryTypes](constraint string) queries.QueryHandlerFunc[T] {
+    return func(q *queries.Query[T]) error {
         // Handle slice of T
         if q.Tx != nil {
             var item T
-            fmt.Println("Handling select with transaction")
-            fields, _ := util.AllFields[T](item)
-            query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", 
-                                    fields, 
+            query := fmt.Sprintf("SELECT * FROM %s WHERE %s", 
                                     item.TableName(),
                                     constraint, 
-                                    )
-            // Execute the query for each item in the slice
-
-            err := q.Tx.Select(&q.A, query)
+                                )
+            
+            err := q.Tx.Select(&q.Rows, query)
             if err != nil {
-                fmt.Println("Error executing query, rolling back transaction:", err)
                 if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
-                    fmt.Println("Failed to rollback transaction:", rollbackErr)
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
                 }
-                return
+                return err
             }
         } else {
-                fmt.Println("Should not handle slice without transaction") 
+                return fmt.Errorf("Should not handle slice without transaction") 
             }
-        fmt.Printf("Insert operation completed successfully\n")
+        return nil
         }
 }
 
-
-
-func Delete[T queries.QueryTypes, I any](constraint string) queries.QueryHandlerFunc[T, I] {
-    return func(q *queries.Query[T, I]) {
-      if q.A != nil {
-            // Handle slice of T
-            if q.Tx != nil {
-                fmt.Println("Handling slice with transaction")
-                for _, item := range q.A {
-                    query := fmt.Sprintf("Delete FROM %s WHERE %s", 
-                                        item.TableName(), 
-                                        constraint, 
-                                        )
-                    // Execute the query for each item in the slice
-                    _, err := q.Tx.NamedExec(query, &item)
-                    if err != nil {
-                        fmt.Println("Error executing query, rolling back transaction:", err)
-                        fmt.Println(query)
-                        if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
-                            fmt.Println("Failed to rollback transaction:", rollbackErr)
-                        }
-                        return
-                    }
-                }
+func SelectOffset[T queries.QueryTypes](args map[string]interface{}, limit int, skip int, sort_by string, order string, constraint string) queries.QueryHandlerFunc[T] {
+    return func(q *queries.Query[T]) error {
+        if q.Tx != nil {
+            var item T
+            var err error
+            q.Rows = make([]T, 0, len(q.A))
+            if len(args) == 0 {
+              query := fmt.Sprintf(
+                  "SELECT * FROM %s WHERE %s ORDER BY $1 %s LIMIT $2 OFFSET $3",
+                  item.TableName(),
+                  constraint,
+                  order,
+              )
+              err = q.Tx.Select(&q.Rows, query, sort_by, limit, skip)
             } else {
-                fmt.Println("Should not handle slice without transaction") 
+              filters , values := util.GenerateFilterString(args, limit, skip, sort_by)
+              query := fmt.Sprintf(
+                  "SELECT * FROM %s WHERE %s AND %s ORDER BY $1 %s LIMIT $2 OFFSET $3",
+                  item.TableName(),
+                  filters,
+                  constraint,
+                  order,
+              )
+              err = q.Tx.Select(&q.A, query, values...)
             }
+            if err != nil {
+                if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
+                }
+                return err
+            }
+        } else {
+                return fmt.Errorf("Should not handle slice without transaction") 
+            }
+        return nil
         }
-        fmt.Printf("Insert operation completed successfully\n")
+}
+
+func Update[T queries.QueryTypes](constraint string) queries.QueryHandlerFunc[T] {
+    return func(q *queries.Query[T]) error {
+        if q.A == nil {
+            return fmt.Errorf("No items provided to update")
+        }
+        
+        if q.Tx == nil {
+            return fmt.Errorf("Update operation on slice should have an active transaction")
+        }
+        
+        q.Rows = make([]T, 0, len(q.A))
+
+        for index, item := range q.A {
+            fields, _ := util.FieldsAndPlaceholders[T](item)
+            args, err := util.GetArgs[T](item); if err != nil {
+              return err
+            }
+            query := fmt.Sprintf("UPDATE %s SET %s WHERE %s RETURNING *", 
+                                 item.TableName(),
+                                 fields,
+                                 constraint)
+            var updatedRow T
+            err = q.Tx.QueryRowx(query, args...).StructScan(&updatedRow); if err != nil {
+                if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
+                }
+                return err
+            }
+            if util.IsZero[T](updatedRow) {
+              return fmt.Errorf("No row returned for %d update", index)
+            }
+            q.Rows = append(q.Rows, updatedRow)
+        }
+
+        return nil
     }
 }
 
-func Update[T queries.QueryTypes, I any](constraint string) queries.QueryHandlerFunc[T, I] {
-    return func(q *queries.Query[T, I]) {
-      if q.A != nil {
-            // Handle slice of T
-            if q.Tx != nil {
-                fmt.Println("Handling slice with transaction")
-                for _, item := range q.A {
-                    fields, _ := util.Fields[T](item)
-
-                    query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", 
-                                        item.TableName(),
-                                        fields,
-                                        constraint, 
-                                        )
-                    // Execute the query for each item in the slice
-                    _, err := q.Tx.NamedExec(query, &item)
-                    if err != nil {
-                        fmt.Println("Error executing query, rolling back transaction:", err)
-                        fmt.Println(query)
-                        if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
-                            fmt.Println("Failed to rollback transaction:", rollbackErr)
-                        }
-                        return
-                    }
-                }
-            } else {
-                fmt.Println("Should not handle slice without transaction") 
-            }
-        }
-        fmt.Printf("Insert operation completed successfully\n")
-    }
-}

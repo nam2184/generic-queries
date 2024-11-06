@@ -13,59 +13,62 @@ suitable for one specific query done routes and routes that handle multiple quer
 
 //If you want to save memory by having specific *queries.Transactions passed, define InsertQuery[T](nil, tran, data)
 
-func InsertQuery[T queries.QueryTypes, I any](tx *sqlx.Tx, tran *queries.Transaction[T, I], data []T) *queries.Query[T, I] {
+
+func InsertQuery[T queries.QueryTypes](tx *sqlx.Tx, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
     if tran == nil {
         // Create a new transaction if not provided
-        tran = queries.NewTransaction[T, I](Insert[T, I](false), tx)
+        tran = queries.NewTransaction[T](Insert[T](false), tx)
     }
     
-    qs := queries.NewQueryMany[T, I](data, tran.Tx)
-    tran.Handler.HandleQuery(qs)
-    return qs
+    qs := queries.NewQueryMany[T](data, tran.Tx)
+    err := tran.Handler.HandleQuery(qs)
+    return qs, err
 }
 
-func InsertQueryID[T queries.QueryTypes, I any](tx *sqlx.Tx, tran *queries.Transaction[T, I], data []T) *queries.Query[T, I] {
+func InsertQueryRow[T queries.QueryTypes](tx *sqlx.Tx, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
     if tran == nil {
         // Create a new transaction if not provided
-        tran = queries.NewTransaction[T, I](Insert[T,I](true), tx)
+        tran = queries.NewTransaction[T](Insert[T](true), tx)
     }
     
-    qs := queries.NewQueryMany[T, I](data, tran.Tx)
-    tran.Handler.HandleQuery(qs)   
+    qs := queries.NewQueryMany[T](data, tran.Tx)
+    err := tran.Handler.HandleQuery(qs)   
  
-    return qs
+    return qs, err
 }
 
 
-func DeleteQuery[T queries.QueryTypes, I any](tx *sqlx.Tx, constraint string, tran *queries.Transaction[T, I], data []T)  *queries.Query[T, I] {
-     if tran == nil {
-        // Create a new transaction if not provided
-        tran = queries.NewTransaction[T, I](Delete[T, I](constraint), tx)
-    }
-
-    qs := queries.NewQueryMany[T, I](data, tran.Tx)
-    tran.Handler.HandleQuery(qs) 
-    return qs
-}
-
-func SelectQuery[T queries.QueryTypes, I any](tx *sqlx.Tx, constraint string, tran *queries.Transaction[T, I], data []T) *queries.Query[T, I] {
+func SelectQuery[T queries.QueryTypes](tx *sqlx.Tx, constraint string, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
     if tran == nil {
         // Create a new transaction if not provided
-        tran = queries.NewTransaction[T, I](Select[T, I](constraint), tx)
+        tran = queries.NewTransaction[T](Select[T](constraint), tx)
     }
     
-    qs := queries.NewQueryMany[T, I](data, tran.Tx)
-    tran.Handler.HandleQuery(qs) 
-    return qs
+    qs := queries.NewQueryMany[T](data, tran.Tx)
+    err := tran.Handler.HandleQuery(qs) 
+    return qs, err
 }
 
-func UpdateQuery[T queries.QueryTypes, I any](tx *sqlx.Tx, constraint string, tran *queries.Transaction[T, I], data []T) *queries.Query[T, I] {
+func SelectOffsetQuery[T queries.QueryTypes](tx *sqlx.Tx, limit int, skip int, sort_by string, order string, args map[string]interface{}, constraint string, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
     if tran == nil {
-        tran = queries.NewTransaction[T, I](Update[T, I](constraint), tx)
+        // Create a new transaction if not provided
+        tran = queries.NewTransaction[T](SelectOffset[T](args, limit, skip, sort_by, order, constraint), tx)
+    }
+    
+    qs := queries.NewQueryMany[T](data, tran.Tx)
+    err := tran.Handler.HandleQuery(qs) 
+    return qs, err
+}
+
+
+func UpdateQuery[T queries.QueryTypes](tx *sqlx.Tx, constraint string, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
+    if tran == nil {
+        tran = queries.NewTransaction[T](Update[T](constraint), tx)
     }
 
-    qs := queries.NewQueryMany[T, I](data, tran.Tx)
-    tran.Handler.HandleQuery(qs) 
-    return qs
+    qs := queries.NewQueryMany[T](data, tran.Tx)
+    err := tran.Handler.HandleQuery(qs) 
+    return qs, err
 }
+
 

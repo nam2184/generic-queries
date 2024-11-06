@@ -5,17 +5,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Query struct which holds any struct representing a table
-type Query[T QueryTypes, I any] struct {
-    A     []T
-    Tx    *sqlx.Tx
-    Q     []string
-    Args  []interface{}
-    ID    []I
+type Query[T QueryTypes] struct {
+    A           []T
+    Rows     []T
+    Tx          *sqlx.Tx
+    Q           []string
 }
 
-func NewQueryMany[T QueryTypes, I any](a []T, tx *sqlx.Tx) *Query[T, I] {
-    return &Query[T, I]{
+func NewQueryMany[T QueryTypes](a []T, tx *sqlx.Tx) *Query[T] {
+    return &Query[T]{
         A:  a,
         Tx: tx,
     }
@@ -25,13 +23,14 @@ type QueryTypes interface {
     model.TableNamer 
 }
 
-type QueryHandlerFunc[T QueryTypes, I any] func(*Query[T, I])
+type QueryHandlerFunc[T QueryTypes] func(*Query[T]) error
 
 
-func (f QueryHandlerFunc[T, I]) HandleQuery(q *Query[T, I]) {
-    f(q)
+func (f QueryHandlerFunc[T]) HandleQuery(q *Query[T]) error {
+    err := f(q)
+    return err
 }
 
-type QueryHandler[T QueryTypes, I any] interface {
-    HandleQuery(q *Query[T, I])
+type QueryHandler[T QueryTypes] interface {
+    HandleQuery(q *Query[T]) error
 }
