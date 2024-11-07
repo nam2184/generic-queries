@@ -49,12 +49,20 @@ func SelectQuery[T queries.QueryTypes](tx *sqlx.Tx, constraint string, tran *que
     return qs, err
 }
 
-func SelectOffsetQuery[T queries.QueryTypes](tx *sqlx.Tx, limit int, skip int, sort_by string, order string, args map[string]interface{}, constraint string, tran *queries.Transaction[T], data []T) (*queries.Query[T], error) {
+func SelectOffsetQuery[T queries.QueryTypes](tx *sqlx.Tx, 
+                                              limit int, 
+                                              skip int, 
+                                              sort_by string, 
+                                              order string, 
+                                              args map[string]interface{}, 
+                                              constraint Constraint, 
+                                              tran *queries.Transaction[T], 
+                                              data []T) (*queries.Query[T], error) {
     if tran == nil {
         // Create a new transaction if not provided
         tran = queries.NewTransaction[T](SelectOffset[T](args, limit, skip, sort_by, order, constraint), tx)
     }
-    
+     
     qs := queries.NewQueryMany[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs) 
     return qs, err

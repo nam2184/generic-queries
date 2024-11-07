@@ -14,7 +14,7 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
    go get https://github.com/nam2184/go-generic-sqlx.git
    ```
 
-2. Add your business logic structures that correspond to the tables within model package and specify TableName() to match QueryTypes interface
+2. Add your business logic that specify TableName() to match QueryTypes interface with db tags for sqlx
 3. Initialise database 
 
   ```go
@@ -35,5 +35,5 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
         }
     }()
 
-    InsertQuery[model.Task, int64](tx, nil, tasks)
+    InsertQuery[model.Task](tx, nil, tasks)
   ```

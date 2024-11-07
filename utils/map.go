@@ -32,11 +32,11 @@ func GetNumberedParameters(data map[string]interface{}) string {
     return strings.Join(placeholders, ", ")
 }
 
-func GenerateFilterString(params map[string]interface{}, limit int, offset int, sort_by string) (string, []interface{}) {
+func GenerateFilterString(params map[string]interface{}, last_placeholder int, args... interface{}) (string, []interface{}) {
     var filterString string
     var values []interface{}
-    count := 3 // Start numbering placeholders from 3
-    values = append(values, limit, offset, sort_by)
+    count := last_placeholder + len(args) 
+    values = append(values, args...)
     for key, value := range params {
         if filterString != "" {
             filterString += " AND "

@@ -86,7 +86,56 @@ func Select[T queries.QueryTypes](constraint string) queries.QueryHandlerFunc[T]
         }
 }
 
-func SelectOffset[T queries.QueryTypes](args map[string]interface{}, limit int, skip int, sort_by string, order string, constraint string) queries.QueryHandlerFunc[T] {
+func SelectOffset[T queries.QueryTypes](args map[string]interface{}, limit int, skip int, sort_by string, order string, constraint Constraint) queries.QueryHandlerFunc[T] {
+    return func(q *queries.Query[T]) error {
+        if q.Tx != nil {
+            var item T
+            var err error
+            q.Rows = make([]T, 0, len(q.A))
+            number, err := constraint.GetFinalPlaceholder(); if err != nil {
+                  number = 1
+            }
+            if len(args) == 0 {
+              query := fmt.Sprintf(
+                  "SELECT * FROM %s WHERE %s ORDER BY $%d %s LIMIT $%d OFFSET $%d",
+                  item.TableName(),
+                  constraint.constraint,
+                  number + 1,
+                  order,
+                  number + 2,
+                  number + 3,
+              )
+              full_args := append(constraint.values, sort_by, limit, skip)
+              err = q.Tx.Select(&q.Rows, query, full_args...)
+            } else {
+              filters , values := util.GenerateFilterString(args, number, limit, skip, sort_by)
+              query := fmt.Sprintf(
+                  "SELECT * FROM %s WHERE %s AND %s ORDER BY $%d %s LIMIT $%d OFFSET $%d",
+                  item.TableName(),
+                  filters,
+                  constraint.constraint,
+                  number + 1,
+                  order,
+                  number + 2,
+                  number + 3,
+              )
+
+              full_args := append(constraint.values, sort_by, limit, skip, values)
+              err = q.Tx.Select(&q.A, query, full_args...)
+            }
+            if err != nil {
+                if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
+                }
+                return err
+            }
+        } else {
+                return fmt.Errorf("Should not handle slice without transaction") 
+            }
+        return nil
+        }
+}
+func SelectOffset2[T queries.QueryTypes](args map[string]interface{}, limit int, skip int, sort_by string, order string, constraint string) queries.QueryHandlerFunc[T] {
     return func(q *queries.Query[T]) error {
         if q.Tx != nil {
             var item T
@@ -123,6 +172,7 @@ func SelectOffset[T queries.QueryTypes](args map[string]interface{}, limit int, 
         return nil
         }
 }
+
 
 func Update[T queries.QueryTypes](constraint string) queries.QueryHandlerFunc[T] {
     return func(q *queries.Query[T]) error {

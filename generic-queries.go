@@ -7,7 +7,7 @@ import (
 
 type Query[T QueryTypes] struct {
     A           []T
-    Rows     []T
+    Rows        []T
     Tx          *sqlx.Tx
     Q           []string
 }
