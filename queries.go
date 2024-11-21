@@ -18,7 +18,7 @@ func InsertQuery[T QueryTypes](tx *sqlx.Tx, tran *Transaction[T], data []T) (*Qu
         tran = NewTransaction[T](Insert[T](false), tx)
     }
     
-    qs := NewQueryMany[T](data, tran.Tx)
+    qs := NewQueries[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs)
     return qs, err
 }
@@ -29,7 +29,7 @@ func InsertQueryRow[T QueryTypes](tx *sqlx.Tx, tran *Transaction[T], data []T) (
         tran = NewTransaction[T](Insert[T](true), tx)
     }
     
-    qs := NewQueryMany[T](data, tran.Tx)
+    qs := NewQueries[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs)   
  
     return qs, err
@@ -42,26 +42,26 @@ func SelectQuery[T QueryTypes](tx *sqlx.Tx, constraint Constraint, tran *Transac
         tran = NewTransaction[T](Select[T](constraint), tx)
     }
     
-    qs := NewQueryMany[T](data, tran.Tx)
+    qs := NewQueries[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs) 
     return qs, err
 }
 
 func SelectOffsetQuery[T QueryTypes](tx *sqlx.Tx, 
-                                              limit int, 
-                                              skip int, 
-                                              sort_by string, 
-                                              order string, 
-                                              args map[string]interface{}, 
-                                              constraint Constraint, 
-                                              tran *Transaction[T], 
-                                              data []T) (*Query[T], error) {
+                                    limit int, 
+                                    skip int, 
+                                    sort_by string, 
+                                    order string, 
+                                    args map[string]interface{}, 
+                                    constraint Constraint, 
+                                    tran *Transaction[T], 
+                                    data []T) (*Query[T], error) {
     if tran == nil {
         // Create a new transaction if not provided
         tran = NewTransaction[T](SelectOffset[T](args, limit, skip, sort_by, order, constraint), tx)
     }
      
-    qs := NewQueryMany[T](data, tran.Tx)
+    qs := NewQueries[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs) 
     return qs, err
 }
@@ -72,7 +72,7 @@ func UpdateQuery[T QueryTypes](tx *sqlx.Tx, constraint Constraint, tran *Transac
         tran = NewTransaction[T](Update[T](constraint), tx)
     }
 
-    qs := NewQueryMany[T](data, tran.Tx)
+    qs := NewQueries[T](data, tran.Tx)
     err := tran.Handler.HandleQuery(qs) 
     return qs, err
 }

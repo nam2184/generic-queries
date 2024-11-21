@@ -12,7 +12,7 @@ type Query[T QueryTypes] struct {
     Q           []string
 }
 
-func NewQueryMany[T QueryTypes](a []T, tx *sqlx.Tx) *Query[T] {
+func NewQueries[T QueryTypes](a []T, tx *sqlx.Tx) *Query[T] {
     return &Query[T]{
         A:  a,
         Tx: tx,
