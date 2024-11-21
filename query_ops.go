@@ -46,7 +46,6 @@ func Insert[T QueryTypes](getRow bool) QueryHandlerFunc[T] {
                                         fields,
                                         placeholders, 
                                         )
- 
                       _, err = q.Tx.NamedExec(query, &item)
                     } 
                     if err != nil {
@@ -60,7 +59,7 @@ func Insert[T QueryTypes](getRow bool) QueryHandlerFunc[T] {
                 return fmt.Errorf("Should not handle slice without transaction") 
             }
         }
-        if len(q.Rows) == 0 { 
+        if len(q.Rows) == 0 && getRow == true{ 
           return fmt.Errorf("Error inserting rows, no rows returned as a result") 
         }
         return nil
@@ -111,8 +110,6 @@ func SelectOffset[T QueryTypes](args map[string]interface{}, limit int, skip int
                   number + 2,
               )
               full_args := append(constraint.values, limit, skip)
-              fmt.Println(full_args...)
-              fmt.Println(query)
               total, err := GetTotalCount(q, constraint); if err != nil {
                   return err
               }
@@ -131,7 +128,6 @@ func SelectOffset[T QueryTypes](args map[string]interface{}, limit int, skip int
                   number + 3,
               )
               full_args := append(constraint.values, values...)
-              //count_args := append(constraint.values, values...)
               total, err := GetTotalCountFilter(q, constraint, full_args, filters); if err != nil {
                 return err
               }

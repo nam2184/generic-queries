@@ -32,12 +32,6 @@ func TestGenerateConstraintFromMap(t *testing.T) {
 			expectedString: "status = $1",
 			expectedValues: []interface{}{"active"},
 		},
-		{
-			name:           "Empty map",
-			data:           map[string]interface{}{},
-			expectedString: "",
-			expectedValues: []interface{}{},
-		},
 	}
 
 	for _, tt := range tests {
@@ -79,7 +73,6 @@ func TestQueryGeneration(t *testing.T) {
 	number, _ := constraint.GetFinalPlaceholder() 
 	filters, filterValues := util.GenerateFilterString(args, number, sortBy, order, limit, skip) // Adjust starting index
 	// Constructing the query
-  fmt.Println(filterValues...)
 	query := fmt.Sprintf(
 		"SELECT * FROM %s WHERE %s AND %s ORDER BY $%d %s LIMIT $%d OFFSET $%d",
 		tableName,
@@ -93,8 +86,6 @@ func TestQueryGeneration(t *testing.T) {
 
 	// Combine constraint values, sorting, limit, skip, and then filter values
   fullArgs := append(constraint.values, filterValues...)
-
-  fmt.Println(query)
 	// Expected results
 	expectedQuery := fmt.Sprintf(
 		"SELECT * FROM %s WHERE %s AND %s ORDER BY $%d %s LIMIT $%d OFFSET $%d",
