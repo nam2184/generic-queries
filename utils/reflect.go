@@ -354,7 +354,7 @@ func FieldsAndParams[T any](entity T) (string, error) {
     return placeholderString, nil
 }
 
-func FieldsAndPlaceholders[T any](entity T) (string, error) {
+func FieldsAndPlaceholders[T any](entity T, start int) (string, error) {
     // Get the value and type of the struct
     v := reflect.ValueOf(entity)
     t := reflect.TypeOf(entity)
@@ -365,7 +365,7 @@ func FieldsAndPlaceholders[T any](entity T) (string, error) {
     }
 
     var placeholders []string
-    count := 0
+    count := start + 1
     // Iterate over struct fields
     for i := 0; i < t.NumField(); i++ {
         field := t.Field(i)
@@ -378,8 +378,8 @@ func FieldsAndPlaceholders[T any](entity T) (string, error) {
         // Check if the field has a zero value and decide whether to include it
         if !isZeroValue(value) || (value.Kind() == reflect.Int && value.Int() == 0) {
             // Construct the SQL clause like: "column_name = :column_name"
-            count++  
             placeholders = append(placeholders, fmt.Sprintf("%s = $%d", dbTag, count))
+            count++  
         }
     }
 
@@ -387,6 +387,8 @@ func FieldsAndPlaceholders[T any](entity T) (string, error) {
     placeholderString := join(placeholders, ", ")
     return placeholderString, nil
 }
+
+
 
 // Helper function to join strings with a separator
 func join(elements []string, sep string) string {
@@ -621,3 +623,45 @@ func GetRequiredPatch(model interface{}) []string {
 }
 
 
+func GetSQLParts[T any](entity T) (string, string, []interface{}, error) {
+    v := reflect.ValueOf(entity)
+    t := reflect.TypeOf(entity)
+
+    // Ensure we're working with a struct
+    if t.Kind() != reflect.Struct {
+        return "", "", nil, fmt.Errorf("GetSQLParts expects a struct, got %s", t.Kind())
+    }
+
+    var fields []string
+    var placeholders []string
+    var args []interface{}
+    paramIndex := 1 // Start indexing from 1 for PostgreSQL positional placeholders
+
+    // Iterate over struct fields
+    for i := 0; i < t.NumField(); i++ {
+        field := t.Field(i)
+        value := v.Field(i)
+        dbTag := field.Tag.Get("db")
+
+        // Skip unexported fields or fields without a db tag
+        if !field.IsExported() || dbTag == "" {
+            continue
+        }
+
+        // Determine if the field should be included
+        includeField := !isZeroValue(value) 
+
+        if includeField {
+            fields = append(fields, dbTag)
+            placeholders = append(placeholders, fmt.Sprintf("$%d", paramIndex))
+            args = append(args, value.Interface())
+            paramIndex++
+        }
+    }
+
+    // Join fields and placeholders into strings
+    fieldString := join(fields, ", ")
+    placeholderString := join(placeholders, ", ")
+
+    return fieldString, placeholderString, args, nil
+}

@@ -11,7 +11,7 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
 1. Clone the repository:
 
    ```bash
-   go get https://github.com/nam2184/go-generic-sqlx.git
+   go get https://github.com/nam2184/generic-queries
    ```
 
 2. Add your business logic that specify TableName() to match QueryTypes interface with db tags for sqlx
@@ -35,5 +35,5 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
         }
     }()
 
-    InsertQuery[model.Task](tx, nil, tasks)
+    queries.InsertQuery[model.Task](tx, nil, tasks)
   ```

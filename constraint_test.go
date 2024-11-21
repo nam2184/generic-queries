@@ -1,4 +1,4 @@
-package sqlx_s
+package queries
 
 import (
 	"fmt"

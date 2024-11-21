@@ -1,13 +1,13 @@
 package queries
 
 import (
-  "github.com/nam2184/generic-queries/model"
 	"github.com/jmoiron/sqlx"
 )
 
 type Query[T QueryTypes] struct {
     A           []T
     Rows        []T
+    Total       int
     Tx          *sqlx.Tx
     Q           []string
 }
@@ -20,7 +20,7 @@ func NewQueryMany[T QueryTypes](a []T, tx *sqlx.Tx) *Query[T] {
 }
 
 type QueryTypes interface {
-    model.TableNamer 
+  TableName() string 
 }
 
 type QueryHandlerFunc[T QueryTypes] func(*Query[T]) error
