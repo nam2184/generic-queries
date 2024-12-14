@@ -8,7 +8,7 @@ import (
 
 func Insert[T QueryTypes](getRow bool) QueryHandlerFunc[T] {
     return func(q *Query[T]) error {
-        if q.A != nil {
+        if len(q.A) != 0 {
             // Handle slice of T
             if q.Tx != nil {
                 for index, item := range q.A {
@@ -66,11 +66,53 @@ func Insert[T QueryTypes](getRow bool) QueryHandlerFunc[T] {
     }
 }
 
+func InsertOne[T QueryTypes](item T) QueryHandlerFunc[T] {
+    return func(q *Query[T]) error {
+        if q.Tx != nil {
+            fields, placeholders, args, err := util.GetSQLParts[T](item); if err != nil {
+              return err
+            }
+             
+            query := fmt.Sprintf("INSERT INTO %s (%s) VALUES( %s ) RETURNING *", 
+                                item.TableName(), 
+                                fields,
+                                placeholders, 
+                                )
+            var row T
+              
+            rowResult := q.Tx.QueryRowx(query, args...)
+            if rowResult.Err() != nil {
+                return fmt.Errorf("query execution error: %w", rowResult.Err())
+            }
+
+            err = rowResult.StructScan(&row)
+            if err != nil {
+                return fmt.Errorf("struct scan error: %w", err)
+            }
+
+            if util.IsZero[T](row) {
+                return fmt.Errorf("No row returned for insert")
+            }
+            q.Rows = append(q.Rows, row)
+            if err != nil {
+                if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
+                }
+                return err
+            }
+      } else {
+          return fmt.Errorf("Should not handle slice without transaction") 
+      }
+    return nil
+  }
+}
+
 func Select[T QueryTypes](constraint Constraint) QueryHandlerFunc[T] {
     return func(q *Query[T]) error {
         // Handle slice of T
         if q.Tx != nil {
             var item T
+            q.Rows = make([]T, 0, len(q.A))
             query := fmt.Sprintf("SELECT * FROM %s WHERE %s", 
                                     item.TableName(),
                                     constraint.constraint, 
@@ -98,6 +140,9 @@ func SelectOffset[T QueryTypes](args map[string]interface{}, limit int, skip int
             q.Rows = make([]T, 0, len(q.A))
             number, err := constraint.GetFinalPlaceholder(); if err != nil {
                   number = 1
+            }
+            if sort_by == "outline_number" {
+                sort_by = "string_to_array(outline_number, '.')::int[]"
             }
             if len(args) == 0 {
               query := fmt.Sprintf(
@@ -132,7 +177,7 @@ func SelectOffset[T QueryTypes](args map[string]interface{}, limit int, skip int
                 return err
               }
               q.Total = total
-              err = q.Tx.Select(&q.A, query, full_args...)
+              err = q.Tx.Select(&q.Rows, query, full_args...)
             }
             if err != nil {
                 if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
@@ -149,7 +194,7 @@ func SelectOffset[T QueryTypes](args map[string]interface{}, limit int, skip int
 
 func Update[T QueryTypes](constraint Constraint) QueryHandlerFunc[T] {
     return func(q *Query[T]) error {
-        if q.A == nil {
+        if len(q.A) == 0 {
             return fmt.Errorf("No items provided to update")
         }
         
@@ -174,6 +219,7 @@ func Update[T QueryTypes](constraint Constraint) QueryHandlerFunc[T] {
                                  fields,
                                  constraint.constraint)
             var updatedRow T
+
             new_args := append(constraint.values, args...)
             err = q.Tx.QueryRowx(query, new_args...).StructScan(&updatedRow); if err != nil {
                 if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
@@ -191,6 +237,48 @@ func Update[T QueryTypes](constraint Constraint) QueryHandlerFunc[T] {
     }
 }
 
+func UpdateNoConstraint[T QueryTypes]() QueryHandlerFunc[T] {
+    return func(q *Query[T]) error {
+        if len(q.A) == 0 {
+            return fmt.Errorf("No items provided to update")
+        }
+        
+        if q.Tx == nil {
+            return fmt.Errorf("Update operation on slice should have an active transaction")
+        }
+        
+        q.Rows = make([]T, 0, len(q.A))
+        
+        for index, item := range q.A {
+            fields, err := util.FieldsAndPlaceholders[T](item, 1); if err != nil {
+                return err
+            }
+            args, err := util.GetArgs[T](item); if err != nil {
+              return err
+            }
+            query := fmt.Sprintf("UPDATE %s SET %s WHERE id = $1 RETURNING *", 
+                                 item.TableName(),
+                                 fields)
+            var updatedRow T
+            var new_args []interface{}
+            new_args = append(new_args, item.Id())
+            new_args = append(new_args, args...)
+            fmt.Println(query)
+            err = q.Tx.QueryRowx(query, new_args...).StructScan(&updatedRow); if err != nil {
+                if rollbackErr := q.Tx.Rollback(); rollbackErr != nil {
+                    return fmt.Errorf("Failed to rollback transaction: %s", rollbackErr)
+                }
+                return err
+            }
+            if util.IsZero[T](updatedRow) {
+              return fmt.Errorf("No row returned for %d update", index)
+            }
+            q.Rows = append(q.Rows, updatedRow)
+        }
+
+        return nil
+    }
+}
 
 func GetTotalCount[T QueryTypes](q *Query[T], constraint Constraint) (int, error) {
     var item T
@@ -223,6 +311,5 @@ func GetTotalCountFilter[T QueryTypes](q *Query[T], constraint Constraint, args 
     if err != nil {
         return 0, fmt.Errorf("failed to get total count: %w", err)
     }
-    
     return totalCount, nil
 }

@@ -20,7 +20,8 @@ func NewQueries[T QueryTypes](a []T, tx *sqlx.Tx) *Query[T] {
 }
 
 type QueryTypes interface {
-  TableName() string 
+  TableName() string
+  Id()        interface{}
 }
 
 type QueryHandlerFunc[T QueryTypes] func(*Query[T]) error

@@ -1,10 +1,10 @@
 # Go Generic SQLx Queries
 
-This project demonstrates how to use generic functions with `sqlx` to perform database operations with reduced code repetition by leveraging Go generics.
+This project demonstrates how to use generic functions with `sqlx` to perform PostGres database operations with reduced code repetition by leveraging Go generics.
 
 ## Features
 
-- **Generic SQL operation Functions**: Dynamically constructs an  SQL statement from any struct using reflection and `sqlx`.
+- **Generic SQL operation Functions**: Dynamically constructs an  SQL statement for PostGres from any struct using reflection and `sqlx`.
   
 ## Setup
 
@@ -14,7 +14,7 @@ This project demonstrates how to use generic functions with `sqlx` to perform da
    go get github.com/nam2184/generic-queries
    ```
 
-2. Add your business logic that specify TableName() to match QueryTypes interface with db tags for sqlx
+2. Add your business logic that specify TableName() and Id() to match QueryTypes interface with db tags for sqlx
 3. Initialise database 
 
   ```go
