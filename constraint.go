@@ -13,7 +13,7 @@ type Constraint struct {
 }
 
 func NewConstraint(constraint string, values ...interface{}) (Constraint, error) {
-  new_constraint, err := GetConstraintString(constraint, values); if err != nil {
+  new_constraint, err := GetConstraintString(constraint, values...); if err != nil {
     return util.GetZero[Constraint](), err
   }
   return Constraint{constraint: new_constraint, values: values}, nil
