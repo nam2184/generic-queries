@@ -3,7 +3,6 @@ package queries
 import (
 	"fmt"
 	"strings"
-
 	util "github.com/nam2184/generic-queries/utils"
 )
 
