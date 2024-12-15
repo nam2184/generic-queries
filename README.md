@@ -1,6 +1,6 @@
 # Go Generic SQLx Queries
 
-This project demonstrates how to use generic functions with `sqlx` to perform PostGres database operations with reduced code repetition by leveraging Go generics.
+This project demonstrates how to use generic functions with `sqlx` to perform PostGres database operations with reduced code repetition by leveraging Go generics, mostly for me but idk use it if u want to.
 
 ## Features
 
